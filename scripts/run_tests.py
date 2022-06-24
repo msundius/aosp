@@ -148,7 +148,9 @@ def run_tests(build_config, root, project, run_disabled_tests=False,
         project_root = root + "/build-" + project + "/"
         cmd = (["nice", project_root + test.command[0]] + test.command[1:]
                + (["--verbose"] if verbose else [])
-               + (["--debug-on-error"] if debug_on_error else []))
+               + (["--debug-on-error"] if debug_on_error else [])
+               + (["--rerun_on_fail"] if test.rerun.flag_isset("rerun_on_fail") else [])
+               + (["--flakey"] if test.rerun.flag_isset("flakey") else []))
         run_test(name=test.name, cmd=cmd)
 
     return test_results

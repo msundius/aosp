@@ -45,19 +45,17 @@ class TrustyBuildConfigProject(object):
         self.also_build = {}
 
 
-class TrustyPortTestFlags(object):
-    """Stores need flags for a test or provide flags for a test environment."""
+class TrustyTestFlags(object):
 
-    ALLOWED_FLAGS = {"android", "storage_boot", "storage_full", "smp4"}
-
-    def __init__(self, **flags):
+    def __init__(self, allowed_flags, **flags):
+        self.allowed_flags = allowed_flags
         self.flags = set()
         self.set(**flags)
 
     def set(self, **flags):
         """Set flags."""
         for name, arg in flags.items():
-            if name in self.ALLOWED_FLAGS:
+            if name in self.allowed_flags:
                 if arg:
                     self.flags.add(name)
                 else:
@@ -67,6 +65,26 @@ class TrustyPortTestFlags(object):
 
     def match_provide(self, provide):
         return self.flags.issubset(provide.flags)
+
+    def flag_isset(self, flag):
+        return self.flags.issubset({flag})
+
+class TrustyPortTestFlags(TrustyTestFlags):
+    ALLOWED_PORT_FLAGS = {"android", "storage_boot", "storage_full", "smp4", "flakey"}
+
+    def __init__(self, **flags):
+        super(TrustyPortTestFlags, self).__init__(self.ALLOWED_PORT_FLAGS, **flags)
+
+
+class TrustyRerunTestFlags(TrustyTestFlags):
+    """ RERUN_Flags: rerun_on_fail: run once more if we fail
+               ntimes: run the test multiple times up t max_ntimes,
+                    if rerun_on_fail is set rerun ntimes only if and while
+               flakey: if marked flakey, allow the test to psas on 2nd try """
+    ALLOWED_RERUN_FLAGS = {"rerun_on_fail", "ntimes", "flakey"}
+
+    def __init__(self, **flags):
+        super(TrustyRerunTestFlags, self).__init__(self.ALLOWED_RERUN_FLAGS, **flags)
 
 
 class TrustyArchiveBuildFile(object):
@@ -83,6 +101,15 @@ class TrustyTest(object):
         self.name = name
         self.command = command
         self.enabled = enabled
+        self.rerun = TrustyRerunTestFlags(rerun_on_fail=True)
+        self.max_ntimes = 2
+
+    def reruns(self, **rerun):
+        self.rerun.set(**rerun)
+        return self
+
+    def set_ntimes(self, ntimes):
+        self.max_ntimes = ntimes
 
 
 class TrustyHostTest(TrustyTest):
@@ -266,9 +293,24 @@ class TrustyBuildConfig(object):
                     for test in porttests_filter(port_tests, provides)]
 
         def needs(tests, *args, **kwargs):
+            if self.debug:
+                print("needs", args, kwargs)
             return [
-                test.needs(*args, **kwargs)
-                for test in flatten_list(tests)
+                test.needs(*args, **kwargs) for test in flatten_list(tests)
+            ]
+
+        def reruns(tests, *args, **kwargs):
+            if self.debug:
+                print("rerun")
+            return [
+                test.rerun(*args, **kwargs) for test in flatten_list(tests)
+            ]
+
+        def set_ntimes(tests, ntimes):
+            if self.debug:
+                print("set_ntimes")
+            return [
+                test.set_ntimes(ntimes) for test in flatten_list(tests)
             ]
 
         file_format = {
@@ -285,6 +327,8 @@ class TrustyBuildConfig(object):
             "androidtest": androidtest,
             "androidporttests": androidporttests,
             "needs": needs,
+            "reruns": reruns,
+            "ntimes": set_ntimes,
         }
 
         with open(path) as f:
