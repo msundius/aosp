@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This file lists projects with optional hosttests and unittests to run for
+# This file lists projects with optional tests to run for
 # those projects in the following format:
 # [
 #     # Add projects to, or remove projects from, list of projects to build.
@@ -42,11 +42,25 @@
 #             # Run a program on the host
 #             hosttest("some_host_binary"),
 #             # Use test-runner to activate a Trusty IPC port
-#             boottest("port.under.test"),
-#             # Use Android to activate a Trusty IPC port
-#             androidport("port.under.test"),
+#             porttest("port.under.test"),
 #             # Run a shell command inside Android
 #             androidtest(name="test_name", command="command to run"),
+#
+#             # To group tests
+#
+#             # Group more than one Trusty IPC Port test
+#             boottests(porttest(port1), portest(port2), ...),
+#             # Group more than one hosttest
+#             hosttests (hosttest(test1), hosttest(test2), ... ),
+#             # To use Android to activate a Trusty IPC port
+#             # group them together with the androidporttests keyword
+#             # all porttests will be activated from Android
+#             androidporttests(portest(port1), portest(port2), ...),
+#
+#             # Inside grouped tests, you can add include file of list of tests
+#             boottests( 
+#                       include(<file-of-testlist>, optional=<True|False>)
+#             ),
 #             ...
 #         ],
 #     ),
