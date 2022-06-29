@@ -79,10 +79,11 @@ class TrustyArchiveBuildFile(object):
 
 class TrustyTest(object):
     """Stores a pair of a test name and a command to run"""
-    def __init__(self, name, command, enabled):
+    def __init__(self, name, command, enabled, shell_cmd=None):
         self.name = name
         self.command = command
         self.enabled = enabled
+        self.shell_cmd = shell_cmd
 
 
 class TrustyHostTest(TrustyTest):
@@ -224,8 +225,35 @@ class TrustyBuildConfig(object):
                                             test.enabled)]
             return trusty_tests
 
+        def androidtest_cmd(command, cmdargs, enabled, **kwargs):
+            cmdargs = list(cmdargs)
+            cmd = command + " ".join(cmdargs)
+            return [cmd, enabled]
+
+        def androidtests(android_tests, provides=None, nameprefix="", cmdargs=(), runargs=()):
+            cmds_list = [androidtest_cmd(test.shell_cmd, enabled=test.enabled,
+                                    nameprefix=nameprefix, cmdargs=cmdargs,
+                                    runargs=runargs)
+                    for test in android_tests]
+            return androidtest("multiple-android-tests", cmds_list, nameprefix=nameprefix, runargs=runargs, cmdislist=True)
+
+
+
+
         def androidtest(name, command, enabled=True, nameprefix="", runargs=(),
-                        timeout=None):
+                        timeout=None, cmdislist=False):
+            def dotest(cmd, enabled):
+                if enabled:
+                    return [ "--shell-command",  cmd ]
+                else:
+                    return []
+
+            if cmdislist:
+                commands = []
+                for cmd in command:
+                    commands = commands + dotest(cmd[0], cmd[1])
+            else:
+                commands = ["--shell-command", command]
             nameprefix = nameprefix + "android-test:"
             if timeout:
                 timeout_args = ['--timeout', str(timeout)]
@@ -237,20 +265,21 @@ class TrustyBuildConfig(object):
                 android_args = []
             runargs = list(runargs)
             return TrustyTest(nameprefix + name,
-                              ["run", "--headless",
-                               "--shell-command", command
-                              ] + timeout_args + android_args + runargs,
+                              ["run", "--headless" ]
+                               + commands
+                               + timeout_args + android_args + runargs,
                               enabled,
+                              shell_cmd=command
                              )
 
-        def androidporttest(port, cmdargs, enabled, **kwargs):
+        def androidporttest_cmd(port, cmdargs, enabled, **kwargs):
             cmdargs = list(cmdargs)
             cmd = " ".join(
                 [
                     "/vendor/bin/trusty-ut-ctrl",
                     port
                 ] + cmdargs)
-            return androidtest(port, cmd, enabled, **kwargs)
+            return [cmd, enabled]
 
         def androidporttests(port_tests, provides=None, nameprefix="",
                              cmdargs=(), runargs=()):
@@ -260,10 +289,11 @@ class TrustyBuildConfig(object):
                                                storage_boot=True,
                                                storage_full=True,
                                                smp4=True)
-            return [androidporttest(test.port, enabled=test.enabled,
+            cmds_list = [androidporttest_cmd(test.port, enabled=test.enabled,
                                     nameprefix=nameprefix, cmdargs=cmdargs,
                                     runargs=runargs)
                     for test in porttests_filter(port_tests, provides)]
+            return androidtest("multiple-android-port-tests", cmds_list, nameprefix=nameprefix, runargs=runargs, cmdislist=True)
 
         def needs(tests, *args, **kwargs):
             return [
@@ -282,6 +312,7 @@ class TrustyBuildConfig(object):
             "porttestflags": TrustyPortTestFlags,
             "hosttests": hosttests,
             "boottests": boottests,
+            "androidtests": androidtests,
             "androidtest": androidtest,
             "androidporttests": androidporttests,
             "needs": needs,

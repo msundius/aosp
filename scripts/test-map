@@ -110,6 +110,7 @@
 
             # Trusty linux driver tests. Unbind and bind to trigger remove and
             # probe function.
+            androidtests([
             androidtest(name="irq-driver",
                         command="echo 'trusty:irq' >"
                                 "/sys/bus/platform/drivers/trusty-irq/unbind"
@@ -364,6 +365,7 @@
                                 "/vendor/etc/"
                                 "keymaster_soft_attestation_keys.xml"),
 
+            ]),
             # Test keymint wrapped attestation key provisioning
             androidtest(name="keymint-wrapped-vts",
                         command="/vendor/bin/"
