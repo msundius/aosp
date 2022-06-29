@@ -280,7 +280,16 @@ def main(default_config=None):
                         "build-config file.", default=default_config)
     parser.add_argument("--android", type=str,
                         help="Path to an Android build to run tests against.")
+    parser.add_argument("--build-config-help", action="store_true",
+                        help="Show build-config and test-map file format documetation")
     args = parser.parse_args()
+
+    if args.build_config_help:
+        docfile = script_dir + '/build-config-doc'
+        f = open(docfile, 'r')
+        file_contents = f.read()
+        print(file_contents)
+        sys.exit(0)
 
     if args.archive is None:
         args.archive = os.path.join(args.build_root, "archive")

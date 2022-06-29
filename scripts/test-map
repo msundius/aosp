@@ -12,49 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This file lists projects with optional hosttests and unittests to run for
-# those projects in the following format:
-# [
-#     # Add projects to, or remove projects from, list of projects to build.
-#     # Does not affect builds where the project list is passed on the command
-#     # line.
-#     build(
-#         # List of projects that this build entry applies to. Required.
-#         projects=[
-#             "<project>",
-#             ...
-#         ]
-#         # If enabled is set to True or ommitted, add projects to list of
-#         # projects to build. If enabled is set to False, remove projects from
-#         # list of projects to build.
-#         enabled=<True|False>
-#     ),
-#     ...
-#     # Specify tests to run for specific projects.
-#     testmap(
-#         # List of projects that this testmap entry applies to. Required.
-#         projects=[
-#             "<project>",
-#             ...
-#         ]
-#         # List of host-tests to run. Optional
-#         tests=[
-#             # Run a program on the host
-#             hosttest("some_host_binary"),
-#             # Use test-runner to activate a Trusty IPC port
-#             boottest("port.under.test"),
-#             # Use Android to activate a Trusty IPC port
-#             androidport("port.under.test"),
-#             # Run a shell command inside Android
-#             androidtest(name="test_name", command="command to run"),
-#             ...
-#         ],
-#     ),
-#     ...
-#     # Include another configuration file. If optional is True, and the file
-#     # does not exist, the include statement is ignored.
-#     include(<file>, optional=<True|False>),
-# ]
+# This file lists projects with optional tests to run for
+# The format of this file is described by running build.py --build-config-help
 
 [
     testmap(

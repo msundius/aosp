@@ -1,0 +1,117 @@
+# Copyright (C) 2018 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This file lists projects with optional tests to run for
+# The file is evaluated and objects are created as described below
+# in the comments. The objects describe the projects which should be
+# built and the tests that must be run.
+#
+[
+    # Add projects to, or remove projects from, list of projects to build.
+    # Does not affect builds where the project list is passed on the command
+    # line.
+    build(
+        # List of projects that this build entry applies to. Required.
+        projects=[
+            "<project>",
+            ...
+        ]
+        # If enabled is set to True or ommitted, add projects to list of
+        # projects to build. If enabled is set to False, remove projects from
+        # list of projects to build.
+        enabled=<True|False>
+    ),
+    ...
+    # Specify tests to run for specific projects.
+    testmap(
+        # List of projects that this testmap entry applies to. Required.
+        projects=[
+            "<project>",
+            ...
+        ]
+        # List of host-tests to run. Optional
+        tests=[
+            hosttest("some_host_binary", enable=True),
+            ##  Run a program on the host
+            # .name      "host-test:some_host_binary"
+            # .command   "host_tests/some_host_binary"
+            # OPTIONAL
+            # .enabled   True | False will(not) be run unless --run-disabled-tests used
+            #  returns 0 for success otherwise failure
+
+            porttest("port.under.test", enabled=True, teimout=None).needs(flag=True),
+            ##  Use test-runner to activate a Trusty IPC port
+            # .name      None
+            # .command   "port.under.test"
+            # OPTIONAL
+            # .enabled   True | False will(not) be run unless --run-disabled-tests used
+            # .need      {"android",
+            #             "storage_boot",
+            #             "storage_full",
+            #             "smp4"}
+            #  returns 0 for success otherwise failure
+
+            androidtest(name="test_name", command="command-to-run",
+                        enabled=True, timeout=<seconds>, nameprefix="<prefix>",
+                        runargs=None),
+            ##  Run a shell command inside Android
+            # .name      nameprefix+"android-test:test_name"
+            # .command   "run --android --timeout=<seconds>
+            #                 --shell-command command-to-run
+            #                 --android <android-args>" + runargs
+            # OPTIONAL
+            # runargs=     "args to pass to run program"
+            # timeout:      android test will wait <seconds> before failing
+            # .nameprefix= "<prefix>"
+            # runargs       extra args to pass to the run (QEMU.py) program.
+            # .enabled      True | False will(not) be run unless --run-disabled-tests used
+            # .shell-command  "command-to-run"
+            #  returns 0 for success otherwise failure
+
+            # To group tests
+
+            boottests(porttest(port1), portest(port2), ...),
+            ##  Group more than one Trusty IPC Port test
+
+            hosttests (hosttest(test1), hosttest(test2), ... ),
+            ##  Group more than one hosttest
+
+            androidporttests(portest(port1), portest(port2), ... nameprefix="",
+                             cmdargs=(), runargs=()),
+            ##  To use Android to activate a Trusty IPC port
+            # Use the same "porttest() form described above but group them
+            # within the this androidporttests() object.
+            # All the porttests will be activated from Android
+            #
+            # name for all portests: nameprefix + "android-port-test:" + port +
+            # commnad "run --android --shell-command /vendor/bin/trusty-ut-ctrl" + port1
+            #              "--shell-command /vendor/bin/trusty-ut-ctrl" + port2 + ...
+            #              "android cmdargs" + runargs
+            # OPTIONAL:
+            # nameprefix:<prefix>
+            # cmdargs: arguments passed to
+
+            boottests(
+                      include(<file-of-testlist>, optional=<True|False>)
+            ),
+            ##  Inside grouped tests, you can add include file of list of tests
+          ...
+        ],
+    ),
+    ...
+    # Include another configuration file. If optional is True, and the file
+    # does not exist, the include statement is ignored.
+    include(<file>, optional=<True|False>),
+]
+
