@@ -106,7 +106,7 @@ def test_should_run(testname, test_filter):
 
 
 def run_tests(build_config, root, project, run_disabled_tests=False,
-              test_filter=None, verbose=False, debug_on_error=False):
+              test_filter=None, verbose=False, debug_on_error=False, run_groups_individually=False):
     """Run tests for a project.
 
     Args:
@@ -127,7 +127,21 @@ def run_tests(build_config, root, project, run_disabled_tests=False,
     test_failed = []
     test_passed = []
 
-    def run_test(name, cmd):
+    def run_test_get_option_string(test):
+        if isinstance(test, trusty_build_config.TrustyPortTest):
+            return ["--boot-test"] + test.command
+        if isinstance(test, trusty_build_config.TrustyHostTest):
+            return ["--shell-command"] + test.command
+        if isinstance(test, trusty_build_config.TrustyTest):
+            return ["--shell-command"] + test.command
+
+
+    def run_test_cmd(run_test_option, name):
+        project_root = root + "/build-" + project + "/"
+
+        cmd = (["nice", project_root + run_test_option
+               + ("--verbose" if verbose else " ")
+               + ("--debug-on-error" if debug_on_error else " ")])
         print()
         print("Running", name, "on", project)
         print("Command line:", " ".join([s.replace(" ", "\\ ") for s in cmd]))
@@ -139,17 +153,43 @@ def run_tests(build_config, root, project, run_disabled_tests=False,
             name, status, test_run_time))
         test_results.add_result(name, status == 0)
         (test_failed if status else test_passed).append(name)
+        return status, test_run_time
 
-    for test in project_config.tests:
-        if not test.enabled and not run_disabled_tests:
-            continue
-        if not test_should_run(test.name, test_filter):
-            continue
-        project_root = root + "/build-" + project + "/"
-        cmd = (["nice", project_root + test.command[0]] + test.command[1:]
-               + (["--verbose"] if verbose else [])
-               + (["--debug-on-error"] if debug_on_error else []))
-        run_test(name=test.name, cmd=cmd)
+    def run_test_list(test_group):
+        name_list = []
+        multi_test_option_strng = ""
+        for test in test_group.test_list:
+            if not test.enabled and not run_disabled_tests:
+                continue
+            if not test_should_run(test.name, test_filter):
+                continue
+            name = test.name
+            multi_test_option_strng.join(run_test_cmd(run_test_get_option_string(test), name))
+
+        return multi_test_option_strng
+
+    def run_test(rtest):
+        if not rtest.enabled and not run_disabled_tests:
+            return
+        if not test_should_run(rtest.name, test_filter):
+            return
+        name = rtest.name
+
+        run_test_option = "".join(run_test_get_option_string(rtest))
+
+        return run_test_cmd(run_test_option, name)
+
+    for item in project_config.tests:
+        if type(item) == type([]):
+            test_group = item
+            if run_groups_individually:
+                for test in test_group.test_list:
+                    run_test(test)
+            else:
+                run_test_list(test_group)
+        else:
+            test = item
+            run_test(test)
 
     return test_results
 

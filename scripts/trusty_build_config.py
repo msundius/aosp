@@ -220,57 +220,41 @@ class TrustyBuildConfig(object):
                     timeout_args = []
 
                 trusty_tests += [TrustyTest("boot-test:" + test.port,
-                                            ["run", "--headless", "--boot-test",
-                                             test.port] + timeout_args,
+                                            [test.port] + timeout_args,
                                             test.enabled)]
             return trusty_tests
 
         def androidtest_cmd(command, cmdargs, enabled, **kwargs):
             cmdargs = list(cmdargs)
-            cmd = command + " ".join(cmdargs)
+            cmd = command + cmdargs
             return [cmd, enabled]
 
         def androidtests(android_tests, provides=None, nameprefix="", cmdargs=(), runargs=()):
             cmds_list = [androidtest_cmd(test.shell_cmd, enabled=test.enabled,
-                                    nameprefix=nameprefix, cmdargs=cmdargs,
-                                    runargs=runargs)
-                    for test in android_tests]
-            return androidtest("multiple-android-tests", cmds_list, nameprefix=nameprefix, runargs=runargs, cmdislist=True)
-
-
-
+                                         nameprefix=nameprefix, cmdargs=cmdargs,
+                                         runargs=runargs)
+                         for test in android_tests]
+            return androidtest("multiple-android-tests", cmds_list, nameprefix=nameprefix, runargs=runargs)
 
         def androidtest(name, command, enabled=True, nameprefix="", runargs=(),
-                        timeout=None, cmdislist=False):
-            def dotest(cmd, enabled):
-                if enabled:
-                    return [ "--shell-command",  cmd ]
-                else:
-                    return []
-
-            if cmdislist:
-                commands = []
-                for cmd in command:
-                    commands = commands + dotest(cmd[0], cmd[1])
-            else:
-                commands = ["--shell-command", command]
+                        timeout=None):
             nameprefix = nameprefix + "android-test:"
             if timeout:
                 timeout_args = ['--timeout', str(timeout)]
             else:
-                timeout_args = []
+                timeout_args = [" "]
             if self.android:
-                android_args = ['--android', self.android]
+                android_args = self.android
             else:
-                android_args = []
+                android_args = [" "]
             runargs = list(runargs)
+            if type(command) == str:
+                command = [command]
             return TrustyTest(nameprefix + name,
-                              ["run", "--headless" ]
-                               + commands
-                               + timeout_args + android_args + runargs,
+                              command + timeout_args + android_args,
                               enabled,
                               shell_cmd=command
-                             )
+                              )
 
         def androidporttest_cmd(port, cmdargs, enabled, **kwargs):
             cmdargs = list(cmdargs)
@@ -279,7 +263,8 @@ class TrustyBuildConfig(object):
                     "/vendor/bin/trusty-ut-ctrl",
                     port
                 ] + cmdargs)
-            return [cmd, enabled]
+            port
+            return cmd
 
         def androidporttests(port_tests, provides=None, nameprefix="",
                              cmdargs=(), runargs=()):
@@ -293,7 +278,7 @@ class TrustyBuildConfig(object):
                                     nameprefix=nameprefix, cmdargs=cmdargs,
                                     runargs=runargs)
                     for test in porttests_filter(port_tests, provides)]
-            return androidtest("multiple-android-port-tests", cmds_list, nameprefix=nameprefix, runargs=runargs, cmdislist=True)
+            return androidtest("multiple-android-port-tests", cmds_list, nameprefix=nameprefix, runargs=runargs)
 
         def needs(tests, *args, **kwargs):
             return [

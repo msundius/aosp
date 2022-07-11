@@ -42,12 +42,28 @@
 #             # Run a program on the host
 #             hosttest("some_host_binary"),
 #             # Use test-runner to activate a Trusty IPC port
-#             boottest("port.under.test"),
-#             # Use Android to activate a Trusty IPC port
-#             androidport("port.under.test"),
+#             porttest("port.under.test"),
 #             # Run a shell command inside Android
 #             androidtest(name="test_name", command="command to run"),
 #             ...
+#
+#             boottests([porttest(), porttest(), ...])
+#             # run a list of hosttests
+#             hosttests([hosttest(), hosttest(), ...])
+#
+#             # run a list of android port tests
+#             # The following allow a "grouped list" of tests to be run together
+#             # these tests often take some time to bring up android or the
+#             # trusty, running as a batch will eliminate the lengthy boot time
+#             # between tests.
+#             #
+#             # run a list of porttests. boottest refers to test-runner
+#             #  that runs from the bootloader. optionally .needs(flags)
+#             #  allowable flags are:
+#             #      ALLOWED_FLAGS = {"android", "storage_boot", "storage_full", "smp4"}
+#             androidporttests([porttest(), porttest(), ...])
+#             # run a list of android tests
+#             androidtests([androidtest(), androidtest(), ...])
 #         ],
 #     ),
 #     ...
@@ -83,6 +99,6 @@
             "sdb7d",
         ],
     ),
-    include("./test-map"),
+    include("./test-map-mike"),
     include("../../proprietary/scripts/build-config", optional=True),
 ]
