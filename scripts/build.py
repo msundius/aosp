@@ -285,8 +285,13 @@ def main(default_config=None):
     if args.archive is None:
         args.archive = os.path.join(args.build_root, "archive")
 
+    # Tests can be grouped together and run in a single instance of QEMU for
+    # performance. do not do this when we are filtering individual tests
+    # because they won't be found in the group.
+    dont_group_tests = True if args.test else False
+
     build_config = trusty_build_config.TrustyBuildConfig(
-        config_file=args.config, android=args.android)
+        config_file=args.config, android=args.android, no_grouping=dont_group_tests)
 
     projects = []
     for project in args.project:

@@ -108,7 +108,7 @@ class TrustyPortTest(TrustyTest):
 class TrustyBuildConfig(object):
     """Trusty build and test configuration file parser."""
 
-    def __init__(self, config_file=None, debug=False, android=None):
+    def __init__(self, config_file=None, debug=False, android=None, no_grouping=False):
         """Inits TrustyBuildConfig.
 
         Args:
@@ -120,6 +120,7 @@ class TrustyBuildConfig(object):
         self.android = android
         self.projects = {}
         self.dist = []
+        self.no_grouping = no_grouping
         if config_file is None:
             config_file = os.path.join(script_dir, "build-config")
         self.read_config_file(config_file)
@@ -219,13 +220,20 @@ class TrustyBuildConfig(object):
                     timeout_args = []
 
                 trusty_tests += [TrustyTest("boot-test:" + test.port,
-                                            ["run", "--headless", "--boot-test",
-                                             test.port] + timeout_args,
-                                            test.enabled)]
+                                            ["run", "--headless",
+                                             "--boot-test", test.port] +
+                                            timeout_args, test.enabled)]
             return trusty_tests
 
-        def androidtest(name, command, enabled=True, nameprefix="", runargs=(),
-                        timeout=None):
+        def androidtest(name, command, enabled=True, nameprefix="",
+                        runargs=(), timeout=None):
+            if isinstance(command, list):
+                commands = []
+                for (cmd, enabled) in command:
+                    if enabled:
+                        commands += ["--shell-command", cmd]
+            else:
+                commands = ["--shell-command", command]
             nameprefix = nameprefix + "android-test:"
             if timeout:
                 timeout_args = ['--timeout', str(timeout)]
@@ -237,20 +245,23 @@ class TrustyBuildConfig(object):
                 android_args = []
             runargs = list(runargs)
             return TrustyTest(nameprefix + name,
-                              ["run", "--headless",
-                               "--shell-command", command
-                              ] + timeout_args + android_args + runargs,
-                              enabled,
+                              ["run", "--headless" ]
+                               + commands
+                               + timeout_args + android_args + runargs,
+                              enabled
                              )
 
-        def androidporttest(port, cmdargs, enabled, **kwargs):
+        def androidporttest_cmd(port, cmdargs, enabled, **kwargs):
             cmdargs = list(cmdargs)
             cmd = " ".join(
                 [
                     "/vendor/bin/trusty-ut-ctrl",
                     port
                 ] + cmdargs)
-            return androidtest(port, cmd, enabled, **kwargs)
+            if self.no_grouping:
+                return androidtest(port, cmd, enabled, **kwargs)
+            else:
+                return [cmd, enabled]
 
         def androidporttests(port_tests, provides=None, nameprefix="",
                              cmdargs=(), runargs=()):
@@ -260,10 +271,20 @@ class TrustyBuildConfig(object):
                                                storage_boot=True,
                                                storage_full=True,
                                                smp4=True)
-            return [androidporttest(test.port, enabled=test.enabled,
-                                    nameprefix=nameprefix, cmdargs=cmdargs,
-                                    runargs=runargs)
-                    for test in porttests_filter(port_tests, provides)]
+            if self.no_grouping:
+                return [androidporttest_cmd(test.port, enabled=test.enabled,
+                                        nameprefix=nameprefix, cmdargs=cmdargs,
+                                        runargs=runargs)
+                        for test in porttests_filter(port_tests, provides)]
+            else:
+                cmds_list = [androidporttest_cmd(test.port, enabled=test.enabled,
+                                                 nameprefix=nameprefix, 
+                                                 cmdargs=cmdargs, runargs=runargs)
+                             for test in porttests_filter(port_tests, provides)]
+                return androidtest("multiple-android-port-tests", cmds_list,
+                                   nameprefix=nameprefix,
+                                   runargs=runargs)
+
 
         def needs(tests, *args, **kwargs):
             return [
@@ -519,7 +540,8 @@ def main():
     parser_config = subparsers.add_parser("config", help="dump config")
     parser_config.set_defaults(func=list_config)
 
-    parser_config = subparsers.add_parser("selftest", help="test config parser")
+    parser_config = subparsers.add_parser("selftest",
+                                          help="test config parser")
     parser_config.set_defaults(func=test_config)
 
     args = parser.parse_args()
