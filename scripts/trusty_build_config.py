@@ -91,6 +91,15 @@ class TrustyHostTest(TrustyTest):
     pass
 
 
+class TrustyAndroidTest(TrustyTest):
+    """Stores a pair of a test name and a command to run on host."""
+
+    def __init__(self, name, command, enabled):
+        super(TrustyAndroidTest, self).__init__(name, command, enabled)
+        self.shell_cmd = command
+
+
+
 class TrustyPortTest(TrustyTest):
     """Stores a trusty port name for a test to run."""
 
@@ -225,6 +234,26 @@ class TrustyBuildConfig(object):
                                             timeout_args, test.enabled)]
             return trusty_tests
 
+        def androidtest_cmd(command, cmdargs, enabled):
+            cmdargs = list(cmdargs)
+            cmd = command + " ".join(cmdargs)
+            return [cmd, enabled]
+
+        def androidtests(android_tests, nameprefix="", cmdargs=(),
+                         runargs=()):
+            if self.no_grouping:
+                print("android no group test list\n", android_tests)
+                return android_tests
+            else:
+
+                cmds_list = [androidtest_cmd(test.shell_cmd, cmdargs,
+                                            enabled=test.enabled)
+                            for test in android_tests]
+
+                return androidtest("multiple-android-tests", cmds_list,
+                                   nameprefix=nameprefix,
+                                   runargs=runargs)
+
         def androidtest(name, command, enabled=True, nameprefix="",
                         runargs=(), timeout=None):
             if isinstance(command, list):
@@ -244,12 +273,14 @@ class TrustyBuildConfig(object):
             else:
                 android_args = []
             runargs = list(runargs)
-            return TrustyTest(nameprefix + name,
-                              ["run", "--headless" ]
-                               + commands
-                               + timeout_args + android_args + runargs,
+            a_test = TrustyAndroidTest(nameprefix + name,
+                              ["run", "--headless"]
+                              + commands
+                              + timeout_args + android_args + runargs,
                               enabled
-                             )
+                              )
+            a_test.shell_cmd = command
+            return a_test
 
         def androidporttest_cmd(port, cmdargs, enabled, **kwargs):
             cmdargs = list(cmdargs)
@@ -303,6 +334,7 @@ class TrustyBuildConfig(object):
             "porttestflags": TrustyPortTestFlags,
             "hosttests": hosttests,
             "boottests": boottests,
+            "androidtests": androidtests,
             "androidtest": androidtest,
             "androidporttests": androidporttests,
             "needs": needs,
