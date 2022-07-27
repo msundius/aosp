@@ -79,13 +79,20 @@ class TrustyArchiveBuildFile(object):
 
 class TrustyTest(object):
     """Stores a pair of a test name and a command to run"""
-    def __init__(self, name, command, enabled):
+    def __init__(self, name, command, enabled, runargs=[], timeout=None):
         self.name = name
         self.command = command
         self.enabled = enabled
+        self.timeout = timeout
+        self.runargs = runargs
 
 
 class TrustyHostTest(TrustyTest):
+    """Stores a pair of a test name and a command to run on host."""
+
+    pass
+
+class TrustyAndroidTest(TrustyTest):
     """Stores a pair of a test name and a command to run on host."""
 
     pass
@@ -98,7 +105,6 @@ class TrustyPortTest(TrustyTest):
         super(TrustyPortTest, self).__init__(None, None, enabled)
         self.port = port
         self.need = TrustyPortTestFlags()
-        self.timeout = timeout
 
     def needs(self, **need):
         self.need.set(**need)
@@ -115,6 +121,7 @@ class TrustyBuildConfig(object):
             config_file: Optional config file path. If omitted config file is
                 found relative to script directory.
             debug: Optional boolean value. Set to True to enable debug messages.
+            android: XXX WHAT IS THIS FOR?
         """
         self.debug = debug
         self.android = android
@@ -224,24 +231,12 @@ class TrustyBuildConfig(object):
                                             test.enabled)]
             return trusty_tests
 
-        def androidtest(name, command, enabled=True, nameprefix="", runargs=(),
+        def androidtest(name, command, enabled=True, nameprefix="", runargs=[],
                         timeout=None):
             nameprefix = nameprefix + "android-test:"
-            if timeout:
-                timeout_args = ['--timeout', str(timeout)]
-            else:
-                timeout_args = []
-            if self.android:
-                android_args = ['--android', self.android]
-            else:
-                android_args = []
-            runargs = list(runargs)
-            return TrustyTest(nameprefix + name,
-                              ["run", "--headless",
-                               "--shell-command", command
-                              ] + timeout_args + android_args + runargs,
-                              enabled,
-                             )
+            print("making androidtest!!!")
+            return TrustyAndroidTest(nameprefix + name, [command], enabled,
+                              runargs, timeout)
 
         def androidporttest(port, cmdargs, enabled, **kwargs):
             cmdargs = list(cmdargs)
@@ -253,7 +248,7 @@ class TrustyBuildConfig(object):
             return androidtest(port, cmd, enabled, **kwargs)
 
         def androidporttests(port_tests, provides=None, nameprefix="",
-                             cmdargs=(), runargs=()):
+                             cmdargs=(), runargs=[]):
             nameprefix = nameprefix + "android-port-test:"
             if provides is None:
                 provides = TrustyPortTestFlags(android=True,

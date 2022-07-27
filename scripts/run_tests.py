@@ -145,10 +145,24 @@ def run_tests(build_config, root, project, run_disabled_tests=False,
             continue
         if not test_should_run(test.name, test_filter):
             continue
+        if test.timeout:
+            timeout_args = ['--timeout', str(test.timeout)]
+        else:
+            timeout_args = []
         project_root = root + "/build-" + project + "/"
-        cmd = (["nice", project_root + test.command[0]] + test.command[1:]
-               + (["--verbose"] if verbose else [])
-               + (["--debug-on-error"] if debug_on_error else []))
+        if isinstance(test, trusty_build_config.TrustyAndroidTest):
+            print("run android test!")
+            print("runargs", test.runargs)
+            cmd = (["nice",  project_root + "run", '--headless', '--shell-command',
+                    test.command[0]] + test.command[1:]
+                   + test.runargs + (["--verbose"] if verbose else [])
+                   + (["--debug-on-error"] if debug_on_error else []))
+            print(cmd)
+        else:
+            cmd = (["nice", project_root + test.command[0]] + test.command[1:]
+                   + (["--verbose"] if verbose else [])
+                   + (["--debug-on-error"] if debug_on_error else []))
+            print(cmd)
         run_test(name=test.name, cmd=cmd)
 
     return test_results
