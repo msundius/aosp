@@ -14,6 +14,7 @@
 
 # This file lists projects with optional tests to run for
 # The format of this file is described by running build.py --build-config-help
+# or by viewing the file build-config-doc in this directory
 
 [
     build(

@@ -47,15 +47,18 @@
             # .name      "host-test:some_host_binary"
             # .command   "host_tests/some_host_binary"
             # OPTIONAL
-            # .enabled   True | False will(not) be run unless --run-disabled-tests used
+            # .enabled   True | False will(not) be run unless
+            #            --run-disabled-tests is used
             #  returns 0 for success otherwise failure
 
-            porttest("port.under.test", enabled=True, teimout=None).needs(flag=True),
+            porttest("port.under.test", enabled=True,
+                     teimout=None).needs(flag=True),
             ##  Use test-runner to activate a Trusty IPC port
             # .name      None
             # .command   "port.under.test"
             # OPTIONAL
-            # .enabled   True | False will(not) be run unless --run-disabled-tests used
+            # .enabled   True | False will(not) be run unless
+                         --run-disabled-tests is used
             # .need      {"android",
             #             "storage_boot",
             #             "storage_full",
@@ -75,43 +78,56 @@
             # timeout:      android test will wait <seconds> before failing
             # .nameprefix= "<prefix>"
             # runargs       extra args to pass to the run (QEMU.py) program.
-            # .enabled      True | False will(not) be run unless --run-disabled-tests used
+            # .enabled      True | False will(not) be run unless
+            #               --run-disabled-tests used
             # .shell-command  "command-to-run"
             #  returns 0 for success otherwise failure
 
             # To group tests
 
             boottests(porttest(port1), portest(port2), ...),
-            ##  Group more than one Trusty IPC Port test
+            ##  Group of more than one Trusty IPC Port test.
+            ##  Only porttest() specifications within the boottests group
+            ##   will be configured. Any other test listed here will be ignored.
 
-            hosttests (hosttest(test1), hosttest(test2), ... ),
-            ##  Group more than one hosttest
+            hosttests (hosttest(test1), hosttest(test2), ...),
+            ##  Group of more than one hosttest
+            ##  Only hosttest() specifications within the hosttests group
+            ##   will be configured. Any other test listed here will be ignored.
 
             androidporttests(portest(port1), portest(port2), ... nameprefix="",
                              cmdargs=(), runargs=()),
-            ##  To use Android to activate a Trusty IPC port
-            # Use the same "porttest() form described above but group them
-            # within the this androidporttests() object.
-            # All the porttests will be activated from Android
+            ##  To use Android to activate a Trusty IPC port se the same
+            ##   "porttest() form described above but group them within the
+            ##   this androidporttests() object.
+            ##  All the porttests will be activated from Android
+            ##  Only porttest() specifications within the androidporttests group
+            ##   will be configured. Any other test listed here will be ignored.
             #
             # name for all portests: nameprefix + "android-port-test:" + port +
-            # commnad "run --android --shell-command /vendor/bin/trusty-ut-ctrl" + port1
-            #              "--shell-command /vendor/bin/trusty-ut-ctrl" + port2 + ...
+            # commnad "run --android"
+            #              "--shell-command /vendor/bin/trusty-ut-ctrl" + port1 +
+            #              "--shell-command /vendor/bin/trusty-ut-ctrl" + port2 +
+            #              ...
             #              "android cmdargs" + runargs
             # OPTIONAL:
             # nameprefix:<prefix>
-            # cmdargs: arguments passed to
+            # cmdargs: ?
 
             boottests(
                       include(<file-of-testlist>, optional=<True|False>)
             ),
-            ##  Inside grouped tests, you can add include file of list of tests
+            ##  Inside grouped tests (boottests, hosttests and androidporttests),
+            ##  you can use the include directive to pull in a list of tests from a file
           ...
         ],
     ),
     ...
     # Include another configuration file. If optional is True, and the file
     # does not exist, the include statement is ignored.
+    # This form is typically used within the grouped tests directives above.
+    # i.e.: boottests, hosttests or androidporttests to select the respective
+    # tests out of a list of tests listed within a different area of the code.
     include(<file>, optional=<True|False>),
 ]
 
