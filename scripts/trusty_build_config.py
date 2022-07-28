@@ -226,15 +226,13 @@ class TrustyBuildConfig(object):
                     timeout_args = []
 
                 trusty_tests += [TrustyTest("boot-test:" + test.port,
-                                            ["run", "--headless", "--boot-test",
-                                             test.port] + timeout_args,
+                                            [test.port] + timeout_args,
                                             test.enabled)]
             return trusty_tests
 
         def androidtest(name, command, enabled=True, nameprefix="", runargs=[],
                         timeout=None):
             nameprefix = nameprefix + "android-test:"
-            print("making androidtest!!!")
             return TrustyAndroidTest(nameprefix + name, [command], enabled,
                               runargs, timeout)
 
