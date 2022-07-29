@@ -86,11 +86,85 @@ class TrustyTest(object):
         self.timeout = timeout
         self.runargs = runargs
 
+    def cmd_pre_str(self, project_root):
+        """Build up the fist part of Run script command from the
+            TrustyTest object. This is the Host System
+            Command which kicks off the test. This is the
+            Same for all tests of the same type (subclass)
+        Args:
+            project_root: string path project directory
+        Returns:
+            the first part of the command test run commandline
+        """
+        cmd = ["nice", project_root + "run", '--headless']
+        return cmd
+
+    def cmd_test_option(self):
+        """return the command test options for this test
+            This details the actual test to run on the tart
+            system. This part may be appended to if we
+            are grouping multiple tests in the same "run" command
+        Args:
+
+        Returns:
+            the run option detailing the test and any test options
+        """
+        cmd = ['--shell-command', self.command[0]]
+        optns = self.command[1:]
+        return cmd, optns
+
+    def cmd_runargs(self, verbose, debug_on_error, timeout=None):
+        """return the run command arguments for this test
+            Only those that are appended at the end of the
+            run command. these may vary depending upon the
+            caller's argument input
+        Args:
+            verbose: bool indicating verbose / no verbose output
+            debug_on_error: bool indicating to output debug info on errors
+            timeout: test timeout in seconds
+        Returns:
+            the built-up command that can be run
+        """
+        if timeout is None:
+            timeout = self.timeout
+        timeout_opt = ['--timeout', str(timeout)] if timeout else []
+        verbose_opt = (["--verbose"] if verbose else [])
+        dbg_opt = (["--debug-on-error"] if debug_on_error else [])
+        return timeout_opt + self.runargs + verbose_opt + dbg_opt
+
+    def biuld_signle_test_cmd(self, project_root, verbose, debug_on_error,
+                              timeout=None):
+        """Build up the Run script command from the TrustyTest object
+            This is for just a single test run.
+            not yet implemented is a means to run multiple tests in a
+            single call to the "run" command.
+        Args:
+            project_root: string indicating path to project build root
+            verbose: bool indicating verbose / no verbose output
+            debug_on_error: bool indicating to output debug info on errors
+            timeout: test timeout in seconds
+        Returns:
+            the built-up commandline for the run script
+        """
+        cmd_pre_str = self.cmd_pre_str(project_root)
+        test_cmd, test_optns = self.cmd_test_option()
+        runargs = self.cmd_runargs(verbose, debug_on_error, timeout=timeout)
+
+        return cmd_pre_str + test_cmd + test_optns + runargs
+
 
 class TrustyHostTest(TrustyTest):
     """Stores a pair of a test name and a command to run on host."""
 
-    pass
+    def cmd_pre_str(self, project_root):
+        cmd = (["nice", project_root])
+        return cmd
+
+    def cmd_test_option(self):
+        cmd = [self.command[0]]
+        optns = self.command[1:]
+        return cmd, optns
+
 
 class TrustyAndroidTest(TrustyTest):
     """Stores a pair of a test name and a command to run on host."""
@@ -102,13 +176,19 @@ class TrustyPortTest(TrustyTest):
     """Stores a trusty port name for a test to run."""
 
     def __init__(self, port, enabled=True, timeout=None):
-        super(TrustyPortTest, self).__init__(None, None, enabled)
+        super(TrustyPortTest, self).__init__("boot-test:" + port, [port],
+                                             enabled, timeout=timeout)
         self.port = port
         self.need = TrustyPortTestFlags()
 
     def needs(self, **need):
         self.need.set(**need)
         return self
+
+    def cmd_test_option(self):
+        cmd = ['--boot-test', self.command[0]]
+        optns = []
+        return cmd, optns
 
 
 class TrustyBuildConfig(object):
@@ -120,7 +200,7 @@ class TrustyBuildConfig(object):
         Args:
             config_file: Optional config file path. If omitted config file is
                 found relative to script directory.
-            debug: Optional boolean value. Set to True to enable debug messages.
+            debug: Optional boolean value. Set to True to enable debug msgs.
             android: XXX WHAT IS THIS FOR?
         """
         self.debug = debug
@@ -218,20 +298,10 @@ class TrustyBuildConfig(object):
             if provides is None:
                 provides = TrustyPortTestFlags(storage_boot=True,
                                                smp4=True)
-            trusty_tests = []
-            for test in porttests_filter(port_tests, provides):
-                if test.timeout:
-                    timeout_args = ['--timeout', str(test.timeout)]
-                else:
-                    timeout_args = []
+            return porttests_filter(port_tests, provides)
 
-                trusty_tests += [TrustyTest("boot-test:" + test.port,
-                                            [test.port] + timeout_args,
-                                            test.enabled)]
-            return trusty_tests
-
-        def androidtest(name, command, enabled=True, nameprefix="", runargs=[],
-                        timeout=None):
+        def androidtest(name, command, enabled=True, nameprefix="",
+                        runargs=[], timeout=None):
             nameprefix = nameprefix + "android-test:"
             return TrustyAndroidTest(nameprefix + name, [command], enabled,
                               runargs, timeout)

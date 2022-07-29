@@ -105,35 +105,6 @@ def test_should_run(testname, test_filter):
     return False
 
 
-def build_test_cmd(test, project_root, runargs):
-    """Build up the Run script command from the TrustyAndroidTest object
-
-    Args:
-        test: TrustyTest Object
-        project_root: string path project directory
-        runargs: list of strings detailing the extra args to "run" cmd
-
-    Returns:
-        the built-up command that can be run
-    """
-    if isinstance(test, trusty_build_config.TrustyAndroidTest):
-        cmd = (["nice", project_root + "run", '--headless',
-                 '--shell-command', test.command[0]] +
-                test.command[1:] + runargs)
-    elif isinstance(test, trusty_build_config.TrustyHostTest):
-        cmd = (["nice", project_root + test.command[0]] + test.command[1:]
-               + runargs)
-    elif isinstance(test, trusty_build_config.TrustyTest) and \
-        test.name.startswith("boot-test:"):
-        cmd = (["nice", project_root + "run", '--headless',
-                '--boot-test', test.command[0]] +
-               runargs)
-    else:
-        print("*****test:", test.name, "Invalid type for test: ***", type(test), "***")
-        cmd = (["echo", "invalid test object", test.name])
-    return cmd
-
-
 def run_tests(build_config, root, project, run_disabled_tests=False,
               test_filter=None, verbose=False, debug_on_error=False):
     """Run tests for a project.
@@ -156,7 +127,14 @@ def run_tests(build_config, root, project, run_disabled_tests=False,
     test_failed = []
     test_passed = []
 
-    def run_test(name, cmd):
+    for test in project_config.tests:
+        name = test.name
+        if not test.enabled and not run_disabled_tests:
+            continue
+        if not test_should_run(name, test_filter):
+            continue
+        project_root = root + "/build-" + project + "/"
+        cmd = test.biuld_signle_test_cmd(project_root, verbose, debug_on_error)
         print()
         print("Running", name, "on", project)
         print("Command line:", " ".join([s.replace(" ", "\\ ") for s in cmd]))
@@ -168,19 +146,6 @@ def run_tests(build_config, root, project, run_disabled_tests=False,
             name, status, test_run_time))
         test_results.add_result(name, status == 0)
         (test_failed if status else test_passed).append(name)
-
-    for test in project_config.tests:
-        if not test.enabled and not run_disabled_tests:
-            continue
-        if not test_should_run(test.name, test_filter):
-            continue
-        project_root = root + "/build-" + project + "/"
-        timeout_opt = ['--timeout', str(test.timeout)] if test.timeout else []
-        verbose_opt = (["--verbose"] if verbose else [])
-        dbg_opt = (["--debug-on-error"] if debug_on_error else [])
-        runargs = timeout_opt + test.runargs + verbose_opt + dbg_opt
-        cmd = build_test_cmd(test, project_root, runargs)
-        run_test(name=test.name, cmd=cmd)
 
     return test_results
 
