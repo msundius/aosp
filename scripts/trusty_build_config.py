@@ -86,7 +86,7 @@ class TrustyTest(object):
         self.timeout = timeout
         self.runargs = runargs
 
-    def cmd_pre_str(self, project_root):
+    def cmd_prefix(self, project_root):
         """Build up the fist part of Run script command from the
             TrustyTest object. This is the Host System
             Command which kicks off the test. This is the
@@ -96,8 +96,7 @@ class TrustyTest(object):
         Returns:
             the first part of the command test run commandline
         """
-        cmd = ["nice", project_root + "run", '--headless']
-        return cmd
+        return []
 
     def cmd_test_option(self):
         """return the command test options for this test
@@ -109,71 +108,39 @@ class TrustyTest(object):
         Returns:
             the run option detailing the test and any test options
         """
-        cmd = ['--shell-command', self.command[0]]
-        optns = self.command[1:]
-        return cmd, optns
-
-    def cmd_runargs(self, verbose, debug_on_error, timeout=None):
-        """return the run command arguments for this test
-            Only those that are appended at the end of the
-            run command. these may vary depending upon the
-            caller's argument input
-        Args:
-            verbose: bool indicating verbose / no verbose output
-            debug_on_error: bool indicating to output debug info on errors
-            timeout: test timeout in seconds
-        Returns:
-            the built-up command that can be run
-        """
-        if timeout is None:
-            timeout = self.timeout
-        timeout_opt = ['--timeout', str(timeout)] if timeout else []
-        verbose_opt = (["--verbose"] if verbose else [])
-        dbg_opt = (["--debug-on-error"] if debug_on_error else [])
-        return timeout_opt + self.runargs + verbose_opt + dbg_opt
-
-    def biuld_signle_test_cmd(self, project_root, verbose, debug_on_error,
-                              timeout=None):
-        """Build up the Run script command from the TrustyTest object
-            This is for just a single test run.
-            not yet implemented is a means to run multiple tests in a
-            single call to the "run" command.
-        Args:
-            project_root: string indicating path to project build root
-            verbose: bool indicating verbose / no verbose output
-            debug_on_error: bool indicating to output debug info on errors
-            timeout: test timeout in seconds
-        Returns:
-            the built-up commandline for the run script
-        """
-        cmd_pre_str = self.cmd_pre_str(project_root)
-        test_cmd, test_optns = self.cmd_test_option()
-        runargs = self.cmd_runargs(verbose, debug_on_error, timeout=timeout)
-
-        return cmd_pre_str + test_cmd + test_optns + runargs
+        return [], []
 
 
 class TrustyHostTest(TrustyTest):
-    """Stores a pair of a test name and a command to run on host."""
+    """TrustyHostTest runs a test on the local host where
+	the build and run_tests modules execute."""
 
-    def cmd_pre_str(self, project_root):
+    def cmd_prefix(self, project_root):
         cmd = (["nice", project_root])
         return cmd
 
     def cmd_test_option(self):
         cmd = [self.command[0]]
-        optns = self.command[1:]
-        return cmd, optns
+        args = self.command[1:]
+        return cmd, args
 
 
 class TrustyAndroidTest(TrustyTest):
-    """Stores a pair of a test name and a command to run on host."""
+    """TrustyAndroidTest runs a test on an Android QEMU instance."""
 
+    def cmd_prefix(self, project_root):
+        cmd = ["nice", project_root + "run", '--headless']
+        return cmd
+
+    def cmd_test(self):
+        cmd = ['--shell-command', self.command[0]]
+        args = self.command[1:]
+        return cmd, args
     pass
 
 
 class TrustyPortTest(TrustyTest):
-    """Stores a trusty port name for a test to run."""
+    """TrustyPortTest runs a test using a specified Trusty port name"""
 
     def __init__(self, port, enabled=True, timeout=None):
         super(TrustyPortTest, self).__init__("boot-test:" + port, [port],
@@ -185,10 +152,14 @@ class TrustyPortTest(TrustyTest):
         self.need.set(**need)
         return self
 
+    def cmd_prefix(self, project_root):
+        cmd = ["nice", project_root + "run", '--headless']
+        return cmd
+
     def cmd_test_option(self):
         cmd = ['--boot-test', self.command[0]]
-        optns = []
-        return cmd, optns
+        args = []
+        return cmd, args
 
 
 class TrustyBuildConfig(object):
