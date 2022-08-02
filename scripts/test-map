@@ -362,7 +362,8 @@
                         command="/vendor/bin/"
                                 "trusty_keymaster_set_attestation_key "
                                 "/vendor/etc/"
-                                "keymaster_soft_attestation_keys.xml"),
+                                "keymaster_soft_attestation_keys.xml",
+                        group="keymint"),
 
             # Test keymint wrapped attestation key provisioning
             androidtest(name="keymint-wrapped-vts",
@@ -386,7 +387,8 @@
                                 "*/AttestKeyTest.AlternateAttestKeyChaining*:"
                                 "*/AttestKeyTest.AllEcCurves*:"
                                 "*/AttestKeyTest.EcdsaAttestationID*"
-                                "\""),
+                                "\"",
+                        group="keymint"),
 
             # Test keymint
             #
@@ -431,13 +433,15 @@
                                 "*/NewKeyGenerationTest.EcdsaAttestationTagNoApplicationId*:"
                                 "*/NewKeyGenerationTest.AttestationApplicationIDLengthProperlyEncoded*"
                                 "\"",
+                        group="vts:keymint",
                         timeout=(60 * 60)),
 
             # Metrics test
             androidtest(name="trusty-metrics",
                         command="/data/nativetest64/vendor/"
                                 "libtrusty_metrics_test/"
-                                "libtrusty_metrics_test"),
+                                "libtrusty_metrics_test",
+                        group="metrics")
         ],
     ),
 ]

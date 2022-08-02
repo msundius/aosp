@@ -79,12 +79,13 @@ class TrustyArchiveBuildFile(object):
 
 class TrustyTest(object):
     """Stores a pair of a test name and a command to run"""
-    def __init__(self, name, command, enabled, runargs=[], timeout=None):
+    def __init__(self, name, command, enabled, group=None, runargs=[], timeout=None):
         self.name = name
         self.command = command
         self.enabled = enabled
         self.timeout = timeout
         self.runargs = runargs
+        self.group = group if group else name
 
     def cmd_prefix(self, project_root):
         """Build up the fist part of Run script command from the
@@ -113,7 +114,7 @@ class TrustyTest(object):
 
 class TrustyHostTest(TrustyTest):
     """TrustyHostTest runs a test on the local host where
-	the build and run_tests modules execute."""
+    the build and run_tests modules execute."""
 
     def cmd_prefix(self, project_root):
         cmd = (["nice", project_root])
@@ -133,7 +134,7 @@ class TrustyAndroidTest(TrustyTest):
         return cmd
 
     def cmd_test(self):
-        cmd = ['--shell-command', self.command[0]]
+        cmd = [self.command[0]]
         args = self.command[1:]
         return cmd, args
     pass
@@ -271,11 +272,12 @@ class TrustyBuildConfig(object):
                                                smp4=True)
             return porttests_filter(port_tests, provides)
 
-        def androidtest(name, command, enabled=True, nameprefix="",
+        def androidtest(name, command, enabled=True, nameprefix="", group=None,
                         runargs=[], timeout=None):
             nameprefix = nameprefix + "android-test:"
             return TrustyAndroidTest(nameprefix + name, [command], enabled,
-                              runargs, timeout)
+                                     group if group else "androidtests",
+                                     runargs, timeout)
 
         def androidporttest(port, cmdargs, enabled, **kwargs):
             cmdargs = list(cmdargs)
@@ -284,7 +286,8 @@ class TrustyBuildConfig(object):
                     "/vendor/bin/trusty-ut-ctrl",
                     port
                 ] + cmdargs)
-            return androidtest(port, cmd, enabled, **kwargs)
+            return androidtest(port, cmd, enabled, group="androidporttests",
+                               **kwargs)
 
         def androidporttests(port_tests, provides=None, nameprefix="",
                              cmdargs=(), runargs=[]):

@@ -23,11 +23,17 @@
 """Run tests for a project."""
 
 import argparse
+import importlib
 import subprocess
 import sys
 import time
 
 import trusty_build_config
+
+
+
+
+from typing import List, Callable, Tuple
 
 
 class TestResults(object):
@@ -105,6 +111,101 @@ def test_should_run(testname, test_filter):
     return False
 
 
+def run_test(name: str, cmd: List[str], callback: Callable[[List[str]], int],
+             test_results: TestResults):
+    """Execute a single test and print out helpful information.
+
+    Args:
+        name: Name of test to run.
+        cmd: List of strings describing how to manually run this test by itself.
+        callback: callable object which runs the test.
+        test_results: object to store the test result in.
+    """
+    print()
+    print("Running", name, "on", test_results.project)
+    print("Command line:", " ".join([s.replace(" ", "\\ ") for s in cmd]))
+    sys.stdout.flush()
+    test_start_time = time.time()
+
+    status = callback(cmd)
+
+    test_run_time = time.time() - test_start_time
+    print("{:s} returned {:d} after {:.3f} seconds".format(
+        name, status, test_run_time))
+    test_results.add_result(name, status == 0)
+
+
+def run_tests_in_qemu(tests: List[Tuple[str, List[str]]], project_build_dir: str,
+                      test_results: TestResults,
+                      verbose=False, debug_on_error=False, timeout=None):
+    """Create a QEMU instance and use it to execute a group of tests.
+
+    Args:
+        tests: List of (name, command) tuples describing group of tests to
+            run in a single shared QEMU instance.
+        project_build_dir: Absolute path to project-specific build dir.
+        test_results: object to store the test result in.
+    """
+    if not tests:
+        return
+    # dynamically load qemu module since it imports a project-specific
+    # module: qemu_options
+    sys.path.append(project_build_dir)
+    qemu = importlib.import_module("qemu")
+    sys.path.pop()
+    print(qemu)
+    #sys.path.append(project_build_dir)
+    #if qemu := sys.modules.get("qemu"):
+    #    print("nothing to do")
+    #    # reload previously imported module, this is safe because there are no
+    #    # live references to objects from this module after this function exits.
+    #    # XXX warning: https://docs.python.org/3.6/library/sys.html#sys.modules
+    #    # I'm not sure this is a good idea, but I am not one to judge
+    #    importlib.reload(qemu)
+    #else:
+    #    print("load qemu")
+    #    import qemu  # pylint: disable=C0415,E0401
+    #sys.path.pop()
+
+    with open(f"{project_build_dir}/config.json") as json:
+        config = qemu.Config(json)
+
+    (_head_name, head_cmd) = tests[0]
+    """
+    args = qemu.argument_parser.parse_args(head_cmd)
+    assert not args.linux
+    assert not args.atf
+    assert not args.qemu
+    assert not args.arch
+    assert len(args.extra_qemu_flags) == 2, args
+    assert args.extra_qemu_flags == ['nice', f"{project_build_dir}/run"], args
+
+    if args.android:
+        config.android = qemu.find_android_build_dir(args.android)
+"""
+    runner = qemu.Runner(config,
+                         boot_tests=[],
+                         interactive=False,
+                         verbose=verbose,
+                         rpmb=True,
+                         debug=False,
+                         debug_on_error=debug_on_error,
+                         timeout=timeout)
+
+    def android_tests_callback(r: qemu.Runner, on_adb_timeout: Callable):
+        for (name, cmd) in tests:
+            adb_kwargs = {
+                "args": ["shell", cmd],
+                "timeout": r.test_timeout,
+                "on_timeout": on_adb_timeout,
+                "force_output": True,
+            }
+            run_test(name, cmd, lambda _: r.adb(**adb_kwargs), test_results)
+        return []  # not used
+
+    runner.run_with_callback(android_tests_callback)
+
+
 def run_tests(build_config, root, project, run_disabled_tests=False,
               test_filter=None, verbose=False, debug_on_error=False):
     """Run tests for a project.
@@ -122,40 +223,52 @@ def run_tests(build_config, root, project, run_disabled_tests=False,
         TestResults object listing overall and detailed test results.
     """
     project_config = build_config.get_project(project=project)
+    project_root = root + "/build-" + project + "/"
+
 
     test_results = TestResults(project)
     test_failed = []
     test_passed = []
+    test_groups = dict()
 
     for test in project_config.tests:
-        name = test.name
         if not test.enabled and not run_disabled_tests:
             continue
-        if not test_should_run(name, test_filter):
+        if not test_should_run(test.name, test_filter):
             continue
-        project_root = root + "/build-" + project + "/"
-        runargs = ([])
-        runargs += test.runargs
-        timeout = test.timeout
-        if timeout:
-            runargs += (['--timeout', str(timeout)])
-        if verbose:
-            runargs += (["--verbose"])
-        if debug_on_error:
-            runargs += (["--debug-on-error"])
-        cmd = test.cmd_prefix(project_root)
-        test_cmd, test_args = test.cmd_test_option()
-        cmd += test_cmd + test_args + runargs
-        print("\nRunning", name, "on", project)
-        print("Command line:", " ".join([s.replace(" ", "\\ ") for s in cmd]))
-        sys.stdout.flush()
-        test_start_time = time.time()
-        status = subprocess.call(cmd)
-        test_run_time = time.time() - test_start_time
-        print("{:s} returned {:d} after {:.3f} seconds".format(
-            name, status, test_run_time))
-        test_results.add_result(name, status == 0)
-        (test_failed if status else test_passed).append(name)
+        (test_groups.setdefault(test.group, [])).append(test)
+
+    for tests in test_groups.values():
+        qemu_tests = []
+        for test in tests:
+            # build the command to run the test via the run script so developers
+            # can run individual tests, although they may be run in groups here.
+            name = test.name
+            if not test.enabled and not run_disabled_tests:
+                continue
+            if not test_should_run(name, test_filter):
+                continue
+            runargs = ([])
+            runargs += test.runargs
+            timeout = test.timeout
+            if timeout:
+                runargs += (['--timeout', str(timeout)])
+            if verbose:
+                runargs += (["--verbose"])
+            if debug_on_error:
+                runargs += (["--debug-on-error"])
+            cmd = test.cmd_prefix(project_root)
+            test_cmd, test_args = test.cmd_test_option()
+            cmd += test_cmd + test_args + runargs
+
+            if isinstance(test, trusty_build_config.TrustyAndroidTest):
+                qemu_tests.append((test.name, cmd))
+            else:
+                run_test(test.name, cmd, lambda cmd: subprocess.call(cmd),
+                         test_results)
+
+        run_tests_in_qemu(qemu_tests, project_root, test_results,
+                          verbose, debug_on_error, timeout)
 
     return test_results
 
